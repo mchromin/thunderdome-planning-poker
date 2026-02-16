@@ -160,6 +160,20 @@ func (s *Service) handleCheckinCreate(tc *checkin.Service) http.HandlerFunc {
 			return
 		}
 
+		// Validate checkinDate is not too far in the past or future
+		checkinDate, dateParseErr := time.Parse("2006-01-02", c.CheckinDate)
+		if dateParseErr != nil {
+			s.Failure(w, r, http.StatusBadRequest, Errorf(EINVALID, "invalid checkin date format"))
+			return
+		}
+		now := time.Now()
+		maxPastDate := now.AddDate(0, 0, -60)  // 60 days in the past
+		maxFutureDate := now.AddDate(0, 0, 30) // 30 days in the future
+		if checkinDate.Before(maxPastDate) || checkinDate.After(maxFutureDate) {
+			s.Failure(w, r, http.StatusBadRequest, Errorf(EINVALID, "checkin date must be within 60 days in the past and 30 days in the future"))
+			return
+		}
+
 		_, err := tc.APIEvent(ctx, teamID, c.UserID, "checkin_create", string(body))
 		if err != nil {
 			if err.Error() == "REQUIRES_TEAM_USER" {
