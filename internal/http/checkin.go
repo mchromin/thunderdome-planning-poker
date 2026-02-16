@@ -114,7 +114,7 @@ type checkinCreateRequestBody struct {
 	Blockers    string `json:"blockers"`
 	Discuss     string `json:"discuss"`
 	GoalsMet    bool   `json:"goalsMet"`
-	CheckinDate string `json:"checkinDate" validate:"required"`
+	CheckinDate string `json:"checkinDate" validate:"required,datetime=2006-01-02"`
 }
 
 // handleCheckinCreate handles creating a team user checkin
