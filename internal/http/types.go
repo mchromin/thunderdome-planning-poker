@@ -212,7 +212,7 @@ type AuthDataSvc interface {
 
 type CheckinDataSvc interface {
 	CheckinList(ctx context.Context, teamID string, Date string, TimeZone string) ([]*thunderdome.TeamCheckin, error)
-	CheckinCreate(ctx context.Context, teamID string, userId string, yesterday string, today string, blockers string, discuss string, goalsMet bool) error
+	CheckinCreate(ctx context.Context, teamID string, userId string, yesterday string, today string, blockers string, discuss string, goalsMet bool, checkinDate string) error
 	CheckinUpdate(ctx context.Context, checkinId string, yesterday string, today string, blockers string, discuss string, goalsMet bool) error
 	CheckinDelete(ctx context.Context, checkinId string) error
 	CheckinComment(ctx context.Context, teamID string, checkinId string, userId string, comment string) error

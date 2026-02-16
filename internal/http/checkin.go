@@ -108,12 +108,13 @@ func (s *Service) handleCheckinLastByUser() http.HandlerFunc {
 }
 
 type checkinCreateRequestBody struct {
-	UserID    string `json:"userId" validate:"required,uuid"`
-	Yesterday string `json:"yesterday"`
-	Today     string `json:"today"`
-	Blockers  string `json:"blockers"`
-	Discuss   string `json:"discuss"`
-	GoalsMet  bool   `json:"goalsMet"`
+	UserID      string `json:"userId" validate:"required,uuid"`
+	Yesterday   string `json:"yesterday"`
+	Today       string `json:"today"`
+	Blockers    string `json:"blockers"`
+	Discuss     string `json:"discuss"`
+	GoalsMet    bool   `json:"goalsMet"`
+	CheckinDate string `json:"checkinDate" validate:"required"`
 }
 
 // handleCheckinCreate handles creating a team user checkin

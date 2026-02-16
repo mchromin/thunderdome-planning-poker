@@ -39,12 +39,11 @@ func (d *CheckinService) CheckinList(ctx context.Context, teamID string, date st
 		LEFT JOIN thunderdome.users u ON tc.user_id = u.id
 		LEFT JOIN thunderdome.team_checkin_comment tcc ON tcc.checkin_id = tc.id
 		WHERE tc.team_id = $1
-		AND date(tc.created_date AT TIME ZONE $3) = $2
+		AND tc.checkin_date = $2
 		GROUP BY tc.id, u.id;
 		`,
 		teamID,
 		date,
-		timeZone,
 	)
 
 	if err == nil {
@@ -128,7 +127,7 @@ func (d *CheckinService) CheckinCreate(
 	ctx context.Context,
 	teamID string, userID string,
 	yesterday string, today string, blockers string, discuss string,
-	goalsMet bool,
+	goalsMet bool, checkinDate string,
 ) error {
 	var userCount int
 	// target user must be on team to check in
@@ -149,8 +148,8 @@ func (d *CheckinService) CheckinCreate(
 	sanitizedDiscuss := d.HTMLSanitizerPolicy.Sanitize(discuss)
 
 	if _, err := d.DB.Exec(`INSERT INTO thunderdome.team_checkin
-		(team_id, user_id, yesterday, today, blockers, discuss, goals_met)
-		VALUES ($1, $2, $3, $4, $5, $6, $7);
+		(team_id, user_id, yesterday, today, blockers, discuss, goals_met, checkin_date)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
 		`,
 		teamID,
 		userID,
@@ -159,6 +158,7 @@ func (d *CheckinService) CheckinCreate(
 		sanitizedBlockers,
 		sanitizedDiscuss,
 		goalsMet,
+		checkinDate,
 	); err != nil {
 		return fmt.Errorf("checkin create error: %v", err)
 	}

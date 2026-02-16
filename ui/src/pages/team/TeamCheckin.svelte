@@ -159,6 +159,7 @@
   function handleCheckin(checkin) {
     const body = {
       ...checkin,
+      checkinDate: selectedDate,
     };
 
     xfetch(`${teamPrefix}/checkins`, { body })
@@ -379,7 +380,6 @@
             id="checkindate"
             bind:value={selectedDate}
             min={maxNegativeDate}
-            max={formatDayForInput(now)}
             onchange={getCheckins}
             class="bg-transparent text-3xl font-rajdhani font-semibold leading-none uppercase dark:text-white cursor-pointer"
           />
@@ -445,7 +445,7 @@
         additionalClasses="font-rajdhani uppercase text-2xl"
         onClick={toggleCheckin}
         testid="check-in"
-        disabled={selectedDate !== formatDayForInput(now) || alreadyCheckedIn}
+        disabled={alreadyCheckedIn}
         >{$LL.checkIn()}
       </SolidButton>
     </div>
