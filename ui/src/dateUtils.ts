@@ -29,6 +29,18 @@ export const subtractDays = function (date, days) {
   );
 };
 
+export const addDays = function (date, days) {
+  return new Date(
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate() + days,
+    date.getHours(),
+    date.getMinutes(),
+    date.getSeconds(),
+    date.getMilliseconds(),
+  );
+};
+
 export const addMinutesToDate = (date, n) => {
   const d = new Date(date);
   d.setTime(d.getTime() + n * 60000);

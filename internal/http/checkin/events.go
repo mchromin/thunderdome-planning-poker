@@ -10,19 +10,20 @@ import (
 // CheckinCreate creates a checkin
 func (b *Service) CheckinCreate(ctx context.Context, teamID string, userID string, eventValue string) (any, []byte, error, bool) {
 	var c struct {
-		UserID    string `json:"userId"`
-		Yesterday string `json:"yesterday"`
-		Today     string `json:"today"`
-		Blockers  string `json:"blockers"`
-		Discuss   string `json:"discuss"`
-		GoalsMet  bool   `json:"goalsMet"`
+		UserID      string `json:"userId"`
+		Yesterday   string `json:"yesterday"`
+		Today       string `json:"today"`
+		Blockers    string `json:"blockers"`
+		Discuss     string `json:"discuss"`
+		GoalsMet    bool   `json:"goalsMet"`
+		CheckinDate string `json:"checkinDate"`
 	}
 	err := json.Unmarshal([]byte(eventValue), &c)
 	if err != nil {
 		return nil, nil, err, false
 	}
 
-	err = b.CheckinService.CheckinCreate(context.Background(), teamID, c.UserID, c.Yesterday, c.Today, c.Blockers, c.Discuss, c.GoalsMet)
+	err = b.CheckinService.CheckinCreate(context.Background(), teamID, c.UserID, c.Yesterday, c.Today, c.Blockers, c.Discuss, c.GoalsMet, c.CheckinDate)
 	if err != nil {
 		return nil, nil, err, false
 	}

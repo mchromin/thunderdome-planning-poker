@@ -1,20 +1,26 @@
 ############################
 # STEP 1 build the ui
 ############################
-FROM node:22.14 as builderNode
+FROM node:22.14 AS builderNode
 
 RUN mkdir /webapp
 COPY ./ui/ /webapp/ui/
 WORKDIR /webapp/ui
+# Update npm to latest to avoid "Exit handler never called!" bug in bundled npm
+RUN npm install -g npm@latest
 # install node packages
-RUN npm set progress=false
-RUN npm ci
+RUN npm set progress=false \
+    && npm config set fetch-retries 5 \
+    && npm config set fetch-retry-mintimeout 20000 \
+    && npm config set fetch-retry-maxtimeout 120000 \
+    && npm config set fetch-timeout 600000
+RUN npm ci --no-audit --no-fund --prefer-offline
 # Build the web app
 RUN npm run build
 ############################
 # STEP 2 build executable binary
 ############################
-FROM golang:1.24-alpine as builderGo
+FROM golang:1.24-alpine AS builderGo
 ARG BUILD_VERSION
 # Install git + SSL ca certificates.
 # Git is required for fetching the dependencies.

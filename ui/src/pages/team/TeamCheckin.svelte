@@ -12,7 +12,7 @@
   import { user } from '../../stores';
   import { AppConfig, appRoutes } from '../../config';
   import { validateUserIsRegistered } from '../../validationUtils';
-  import { formatDayForInput, getTimezoneName, subtractDays } from '../../dateUtils';
+  import { formatDayForInput, getTimezoneName, subtractDays, addDays } from '../../dateUtils';
   import UserAvatar from '../../components/user/UserAvatar.svelte';
   import BlockedPing from '../../components/checkin/BlockedPing.svelte';
   import Picker from '../../components/timezone-picker/Picker.svelte';
@@ -28,6 +28,7 @@
   let showCheckin = $state(false);
   let now = $state(new Date());
   let maxNegativeDate = $state();
+  let maxFutureDate = $state();
   let selectedDate = $state();
   let selectedCheckin = $state();
   let stats = $state({
@@ -159,6 +160,7 @@
   function handleCheckin(checkin) {
     const body = {
       ...checkin,
+      checkinDate: selectedDate,
     };
 
     xfetch(`${teamPrefix}/checkins`, { body })
@@ -347,6 +349,7 @@
 
     selectedDate = formatDayForInput(now);
     maxNegativeDate = formatDayForInput(subtractDays(now, 60));
+    maxFutureDate = formatDayForInput(addDays(now, 30));
 
     getTeam();
     getUsers();
@@ -379,7 +382,7 @@
             id="checkindate"
             bind:value={selectedDate}
             min={maxNegativeDate}
-            max={formatDayForInput(now)}
+            max={maxFutureDate}
             onchange={getCheckins}
             class="bg-transparent text-3xl font-rajdhani font-semibold leading-none uppercase dark:text-white cursor-pointer"
           />
@@ -445,7 +448,7 @@
         additionalClasses="font-rajdhani uppercase text-2xl"
         onClick={toggleCheckin}
         testid="check-in"
-        disabled={selectedDate !== formatDayForInput(now) || alreadyCheckedIn}
+        disabled={alreadyCheckedIn}
         >{$LL.checkIn()}
       </SolidButton>
     </div>

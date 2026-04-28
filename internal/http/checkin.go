@@ -108,12 +108,13 @@ func (s *Service) handleCheckinLastByUser() http.HandlerFunc {
 }
 
 type checkinCreateRequestBody struct {
-	UserID    string `json:"userId" validate:"required,uuid"`
-	Yesterday string `json:"yesterday"`
-	Today     string `json:"today"`
-	Blockers  string `json:"blockers"`
-	Discuss   string `json:"discuss"`
-	GoalsMet  bool   `json:"goalsMet"`
+	UserID      string `json:"userId" validate:"required,uuid"`
+	Yesterday   string `json:"yesterday"`
+	Today       string `json:"today"`
+	Blockers    string `json:"blockers"`
+	Discuss     string `json:"discuss"`
+	GoalsMet    bool   `json:"goalsMet"`
+	CheckinDate string `json:"checkinDate" validate:"required,datetime=2006-01-02"`
 }
 
 // handleCheckinCreate handles creating a team user checkin
@@ -156,6 +157,20 @@ func (s *Service) handleCheckinCreate(tc *checkin.Service) http.HandlerFunc {
 		inputErr := validate.Struct(c)
 		if inputErr != nil {
 			s.Failure(w, r, http.StatusBadRequest, Errorf(EINVALID, inputErr.Error()))
+			return
+		}
+
+		// Validate checkinDate is not too far in the past or future
+		checkinDate, dateParseErr := time.Parse("2006-01-02", c.CheckinDate)
+		if dateParseErr != nil {
+			s.Failure(w, r, http.StatusBadRequest, Errorf(EINVALID, "invalid checkin date format"))
+			return
+		}
+		now := time.Now()
+		maxPastDate := now.AddDate(0, 0, -60)  // 60 days in the past
+		maxFutureDate := now.AddDate(0, 0, 30) // 30 days in the future
+		if checkinDate.Before(maxPastDate) || checkinDate.After(maxFutureDate) {
+			s.Failure(w, r, http.StatusBadRequest, Errorf(EINVALID, "checkin date must be within 60 days in the past and 30 days in the future"))
 			return
 		}
 
