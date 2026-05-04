@@ -27,7 +27,7 @@ type Service struct {
 }
 
 // CreateGame creates a new story pointing session
-func (d *Service) CreateGame(ctx context.Context, facilitatorID string, name string, estimationScaleID string, pointValuesAllowed []string, stories []*thunderdome.Story, autoFinishVoting bool, pointAverageRounding string, joinCode string, facilitatorCode string, hideVoterIdentity bool) (*thunderdome.Poker, error) {
+func (d *Service) CreateGame(ctx context.Context, facilitatorID string, name string, estimationScaleID string, pointValuesAllowed []string, stories []*thunderdome.Story, autoFinishVoting bool, pointAverageRounding string, joinCode string, facilitatorCode string, hideVoterIdentity bool, sessionMode string, deadline *time.Time) (*thunderdome.Poker, error) {
 	var encryptedJoinCode string
 	var encryptedLeaderCode string
 
@@ -47,11 +47,21 @@ func (d *Service) CreateGame(ctx context.Context, facilitatorID string, name str
 		encryptedLeaderCode = EncryptedCode
 	}
 
+	if sessionMode == "" {
+		sessionMode = thunderdome.PokerSessionModeSync
+	}
+	// In async mode the votingLocked column should default to false so users can
+	// vote on any story at any time.
+	votingLocked := true
+	if sessionMode == thunderdome.PokerSessionModeAsync {
+		votingLocked = false
+	}
+
 	var b = &thunderdome.Poker{
 		Name:                 name,
 		Users:                make([]*thunderdome.PokerUser, 0),
 		Stories:              make([]*thunderdome.Story, 0),
-		VotingLocked:         true,
+		VotingLocked:         votingLocked,
 		PointValuesAllowed:   pointValuesAllowed,
 		AutoFinishVoting:     autoFinishVoting,
 		PointAverageRounding: pointAverageRounding,
@@ -60,6 +70,8 @@ func (d *Service) CreateGame(ctx context.Context, facilitatorID string, name str
 		JoinCode:             joinCode,
 		FacilitatorCode:      facilitatorCode,
 		EstimationScaleID:    estimationScaleID,
+		SessionMode:          sessionMode,
+		Deadline:             deadline,
 	}
 	b.Facilitators = append(b.Facilitators, facilitatorID)
 
@@ -74,11 +86,12 @@ func (d *Service) CreateGame(ctx context.Context, facilitatorID string, name str
 	err = tx.QueryRowContext(ctx, `
             INSERT INTO thunderdome.poker
             (owner_id, name, estimation_scale_id, point_values_allowed, auto_finish_voting, point_average_rounding,
-             hide_voter_identity, join_code, leader_code)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+             hide_voter_identity, join_code, leader_code, voting_locked, session_mode, deadline)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
             RETURNING id, created_date, updated_date
         `, facilitatorID, name, estimationScaleID, pointValuesAllowed, autoFinishVoting,
 		pointAverageRounding, hideVoterIdentity, encryptedJoinCode, encryptedLeaderCode,
+		votingLocked, sessionMode, deadline,
 	).Scan(&b.ID, &b.CreatedDate, &b.UpdatedDate)
 	if err != nil {
 		d.Logger.Error("create poker error", zap.Error(err))
@@ -146,7 +159,7 @@ func (d *Service) CreateGame(ctx context.Context, facilitatorID string, name str
 }
 
 // TeamCreateGame creates a new story pointing session associated to a team
-func (d *Service) TeamCreateGame(ctx context.Context, teamID string, facilitatorID string, name string, estimationScaleID string, pointValuesAllowed []string, stories []*thunderdome.Story, autoFinishVoting bool, pointAverageRounding string, joinCode string, facilitatorCode string, hideVoterIdentity bool) (*thunderdome.Poker, error) {
+func (d *Service) TeamCreateGame(ctx context.Context, teamID string, facilitatorID string, name string, estimationScaleID string, pointValuesAllowed []string, stories []*thunderdome.Story, autoFinishVoting bool, pointAverageRounding string, joinCode string, facilitatorCode string, hideVoterIdentity bool, sessionMode string, deadline *time.Time) (*thunderdome.Poker, error) {
 	var encryptedJoinCode string
 	var encryptedLeaderCode string
 
@@ -166,11 +179,19 @@ func (d *Service) TeamCreateGame(ctx context.Context, teamID string, facilitator
 		encryptedLeaderCode = EncryptedCode
 	}
 
+	if sessionMode == "" {
+		sessionMode = thunderdome.PokerSessionModeSync
+	}
+	votingLocked := true
+	if sessionMode == thunderdome.PokerSessionModeAsync {
+		votingLocked = false
+	}
+
 	var b = &thunderdome.Poker{
 		Name:                 name,
 		Users:                make([]*thunderdome.PokerUser, 0),
 		Stories:              make([]*thunderdome.Story, 0),
-		VotingLocked:         true,
+		VotingLocked:         votingLocked,
 		PointValuesAllowed:   pointValuesAllowed,
 		AutoFinishVoting:     autoFinishVoting,
 		PointAverageRounding: pointAverageRounding,
@@ -180,6 +201,8 @@ func (d *Service) TeamCreateGame(ctx context.Context, teamID string, facilitator
 		FacilitatorCode:      facilitatorCode,
 		EstimationScaleID:    estimationScaleID,
 		TeamID:               teamID,
+		SessionMode:          sessionMode,
+		Deadline:             deadline,
 	}
 	b.Facilitators = append(b.Facilitators, facilitatorID)
 
@@ -192,11 +215,12 @@ func (d *Service) TeamCreateGame(ctx context.Context, teamID string, facilitator
 	err = tx.QueryRowContext(ctx, `
             INSERT INTO thunderdome.poker
             (owner_id, name, estimation_scale_id, point_values_allowed, auto_finish_voting, point_average_rounding,
-             hide_voter_identity, join_code, leader_code, team_id)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+             hide_voter_identity, join_code, leader_code, team_id, voting_locked, session_mode, deadline)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
             RETURNING id, created_date, updated_date
         `, facilitatorID, name, estimationScaleID, pointValuesAllowed, autoFinishVoting,
 		pointAverageRounding, hideVoterIdentity, encryptedJoinCode, encryptedLeaderCode, teamID,
+		votingLocked, sessionMode, deadline,
 	).Scan(&b.ID, &b.CreatedDate, &b.UpdatedDate)
 	if err != nil {
 		if rollbackErr := tx.Rollback(); rollbackErr != nil {
@@ -270,7 +294,7 @@ func (d *Service) TeamCreateGame(ctx context.Context, teamID string, facilitator
 }
 
 // UpdateGame updates the game by ID
-func (d *Service) UpdateGame(pokerID string, name string, pointValuesAllowed []string, autoFinishVoting bool, pointAverageRounding string, hideVoterIdentity bool, joinCode string, facilitatorCode string, teamID string) error {
+func (d *Service) UpdateGame(pokerID string, name string, pointValuesAllowed []string, autoFinishVoting bool, pointAverageRounding string, hideVoterIdentity bool, joinCode string, facilitatorCode string, teamID string, sessionMode string, deadline *time.Time) error {
 	var encryptedJoinCode string
 	var encryptedLeaderCode string
 
@@ -293,10 +317,12 @@ func (d *Service) UpdateGame(pokerID string, name string, pointValuesAllowed []s
 	if _, err := d.DB.Exec(`
 		UPDATE thunderdome.poker
 		SET name = $2, point_values_allowed = $3, auto_finish_voting = $4, point_average_rounding = $5,
-		 hide_voter_identity = $6, join_code = $7, leader_code = $8, updated_date = NOW(), team_id = NULLIF($9, '')::uuid
+		 hide_voter_identity = $6, join_code = $7, leader_code = $8, updated_date = NOW(), team_id = NULLIF($9, '')::uuid,
+		 session_mode = CASE WHEN $10 = '' THEN session_mode ELSE $10 END,
+		 deadline = CASE WHEN $12 THEN $11 ELSE deadline END
 		WHERE id = $1`,
 		pokerID, name, pointValuesAllowed, autoFinishVoting, pointAverageRounding,
-		hideVoterIdentity, encryptedJoinCode, encryptedLeaderCode, teamID,
+		hideVoterIdentity, encryptedJoinCode, encryptedLeaderCode, teamID, sessionMode, deadline, deadline != nil,
 	); err != nil {
 		return fmt.Errorf("update poker query error: %v", err)
 	}
@@ -343,7 +369,8 @@ func (d *Service) GetGameByID(pokerID string, userID string) (*thunderdome.Poker
 				'default_scale', es.default_scale
 			)::jsonb,
 			'{}'::jsonb
-		) AS estimation_scale, end_time, end_reason
+		) AS estimation_scale, end_time, end_reason,
+		COALESCE(b.session_mode, 'sync'), b.deadline
 		FROM thunderdome.poker b
 		LEFT JOIN thunderdome.poker_facilitator bl ON b.id = bl.poker_id
 		LEFT JOIN thunderdome.estimation_scale es ON b.estimation_scale_id = es.id
@@ -369,6 +396,8 @@ func (d *Service) GetGameByID(pokerID string, userID string) (*thunderdome.Poker
 		&estimationScaleJSON,
 		&b.EndTime,
 		&b.EndReason,
+		&b.SessionMode,
+		&b.Deadline,
 	)
 	if e != nil {
 		return nil, fmt.Errorf("get poker query error: %v", e)
@@ -407,6 +436,26 @@ func (d *Service) GetGameByID(pokerID string, userID string) (*thunderdome.Poker
 
 	b.Users = d.GetUsers(pokerID)
 	b.Stories = d.GetStories(pokerID, userID)
+
+	// In async mode load comments for each story so participants/facilitators
+	// can see them. Visibility (which comments to expose) is enforced by the
+	// HTTP handler based on user role and finalization state.
+	if b.SessionMode == thunderdome.PokerSessionModeAsync && len(b.Stories) > 0 {
+		comments, cErr := d.GetGameComments(pokerID)
+		if cErr == nil {
+			byStory := make(map[string][]*thunderdome.PokerStoryComment)
+			for _, c := range comments {
+				byStory[c.StoryID] = append(byStory[c.StoryID], c)
+			}
+			for _, st := range b.Stories {
+				if cs, ok := byStory[st.ID]; ok {
+					st.Comments = cs
+				} else {
+					st.Comments = []*thunderdome.PokerStoryComment{}
+				}
+			}
+		}
+	}
 
 	return b, nil
 }

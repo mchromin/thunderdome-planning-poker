@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"slices"
 	"strconv"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -67,6 +68,8 @@ type battleRequestBody struct {
 	JoinCode             string               `json:"joinCode"`
 	FacilitatorCode      string               `json:"leaderCode"`
 	ProjectIds           []string             `json:"projectIds"`
+	SessionMode          string               `json:"sessionMode" validate:"omitempty,oneof=sync async"`
+	Deadline             *time.Time           `json:"deadline"`
 }
 
 // handlePokerCreate handles creating a poker game
@@ -158,7 +161,7 @@ func (s *Service) handlePokerCreate() http.HandlerFunc {
 		// if battle created with team association
 		if teamID != "" {
 			if isTeamUserOrAnAdmin(r) {
-				newGame, err = s.PokerDataSvc.TeamCreateGame(ctx, teamID, userID, b.Name, b.EstimationScaleID, b.PointValuesAllowed, b.Stories, b.AutoFinishVoting, b.PointAverageRounding, b.JoinCode, b.FacilitatorCode, b.HideVoterIdentity)
+				newGame, err = s.PokerDataSvc.TeamCreateGame(ctx, teamID, userID, b.Name, b.EstimationScaleID, b.PointValuesAllowed, b.Stories, b.AutoFinishVoting, b.PointAverageRounding, b.JoinCode, b.FacilitatorCode, b.HideVoterIdentity, b.SessionMode, b.Deadline)
 				if err != nil {
 					s.Logger.Ctx(ctx).Error("handlePokerCreate error", zap.Error(err),
 						zap.String("entity_user_id", userID), zap.String("team_id", teamID),
@@ -171,7 +174,7 @@ func (s *Service) handlePokerCreate() http.HandlerFunc {
 				return
 			}
 		} else {
-			newGame, err = s.PokerDataSvc.CreateGame(ctx, userID, b.Name, b.EstimationScaleID, b.PointValuesAllowed, b.Stories, b.AutoFinishVoting, b.PointAverageRounding, b.JoinCode, b.FacilitatorCode, b.HideVoterIdentity)
+			newGame, err = s.PokerDataSvc.CreateGame(ctx, userID, b.Name, b.EstimationScaleID, b.PointValuesAllowed, b.Stories, b.AutoFinishVoting, b.PointAverageRounding, b.JoinCode, b.FacilitatorCode, b.HideVoterIdentity, b.SessionMode, b.Deadline)
 			if err != nil {
 				s.Logger.Ctx(ctx).Error("handlePokerCreate error", zap.Error(err),
 					zap.String("entity_user_id", userID), zap.String("poker_name", b.Name),

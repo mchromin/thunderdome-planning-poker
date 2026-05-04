@@ -38,9 +38,17 @@ type Poker struct {
 	EstimationScale      *EstimationScale `json:"estimationScale,omitempty"`
 	EndTime              *time.Time       `json:"endTime"`
 	EndReason            *string          `json:"endReason,omitempty"`
+	SessionMode          string           `json:"sessionMode"`
+	Deadline             *time.Time       `json:"deadline,omitempty"`
 	CreatedDate          time.Time        `json:"createdDate"`
 	UpdatedDate          time.Time        `json:"updatedDate"`
 }
+
+// PokerSessionModeSync is the default real-time/live poker mode.
+const PokerSessionModeSync = "sync"
+
+// PokerSessionModeAsync allows participants to vote and comment on stories at any time.
+const PokerSessionModeAsync = "async"
 
 // Vote structure
 type Vote struct {
@@ -50,21 +58,34 @@ type Vote struct {
 
 // Story aka Story structure
 type Story struct {
-	ID                 string    `json:"id"`
-	Name               string    `json:"name"`
-	Type               string    `json:"type"`
-	ReferenceID        string    `json:"referenceId"`
-	Link               string    `json:"link"`
-	Description        string    `json:"description"`
-	AcceptanceCriteria string    `json:"acceptanceCriteria"`
-	Priority           int32     `json:"priority"`
-	Votes              []*Vote   `json:"votes"`
-	Points             string    `json:"points"`
-	Active             bool      `json:"active"`
-	Skipped            bool      `json:"skipped"`
-	VoteStartTime      time.Time `json:"voteStartTime"`
-	VoteEndTime        time.Time `json:"voteEndTime"`
-	Position           int32     `json:"position"`
+	ID                 string          `json:"id"`
+	Name               string          `json:"name"`
+	Type               string          `json:"type"`
+	ReferenceID        string          `json:"referenceId"`
+	Link               string          `json:"link"`
+	Description        string          `json:"description"`
+	AcceptanceCriteria string          `json:"acceptanceCriteria"`
+	Priority           int32           `json:"priority"`
+	Votes              []*Vote         `json:"votes"`
+	Points             string          `json:"points"`
+	Active             bool            `json:"active"`
+	Skipped            bool            `json:"skipped"`
+	VoteStartTime      time.Time       `json:"voteStartTime"`
+	VoteEndTime        time.Time       `json:"voteEndTime"`
+	Position           int32                `json:"position"`
+	Comments           []*PokerStoryComment `json:"comments,omitempty"`
+}
+
+// PokerStoryComment is a comment left by a participant on a poker story (async mode).
+type PokerStoryComment struct {
+	ID        string    `json:"id"`
+	StoryID   string    `json:"storyId"`
+	PokerID   string    `json:"pokerId"`
+	UserID    string    `json:"userId"`
+	UserName  string    `json:"userName"`
+	Comment   string    `json:"comment"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
 }
 
 type EstimationScale struct {
@@ -94,6 +115,7 @@ type PokerSettings struct {
 	EstimationScaleID    *string   `json:"estimationScaleId"`
 	JoinCode             string    `json:"joinCode"`
 	FacilitatorCode      string    `json:"facilitatorCode"`
+	SessionMode          string    `json:"sessionMode"`
 	CreatedAt            time.Time `json:"createdAt"`
 	UpdatedAt            time.Time `json:"updatedAt"`
 }

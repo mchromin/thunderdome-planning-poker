@@ -322,3 +322,34 @@ func (d *Service) FinalizeStory(pokerID string, storyID string, points string) (
 
 	return stories, nil
 }
+
+// ReopenStory clears the agreed points and reactivates async voting on a story.
+// Used by async sessions when a facilitator wants to revisit a finalized story.
+// Existing votes are preserved.
+func (d *Service) ReopenStory(pokerID string, storyID string) ([]*thunderdome.Story, error) {
+	if _, err := d.DB.Exec(
+		`UPDATE thunderdome.poker_story SET points = '', skipped = false, updated_date = NOW()
+		 WHERE id = $1 AND poker_id = $2`,
+		storyID, pokerID,
+	); err != nil {
+		d.Logger.Error("reopen poker story error", zap.Error(err),
+			zap.String("PokerID", pokerID), zap.String("StoryID", storyID))
+		return nil, fmt.Errorf("reopen poker story error: %v", err)
+	}
+
+	stories := d.GetStories(pokerID, "")
+	return stories, nil
+}
+
+// GetGameSessionMode returns the session_mode for the given poker game.
+func (d *Service) GetGameSessionMode(pokerID string) (string, error) {
+	var mode string
+	err := d.DB.QueryRow(
+		`SELECT COALESCE(session_mode, 'sync') FROM thunderdome.poker WHERE id = $1`,
+		pokerID,
+	).Scan(&mode)
+	if err != nil {
+		return "", fmt.Errorf("get poker session_mode error: %v", err)
+	}
+	return mode, nil
+}

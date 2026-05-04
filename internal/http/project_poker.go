@@ -120,7 +120,7 @@ func (s *Service) handleCreateProjectPokerGame() http.HandlerFunc {
 
 		var newGame *thunderdome.Poker
 		var err error
-		newGame, err = s.PokerDataSvc.CreateGame(ctx, sessionUserID, b.Name, b.EstimationScaleID, b.PointValuesAllowed, b.Stories, b.AutoFinishVoting, b.PointAverageRounding, b.JoinCode, b.FacilitatorCode, b.HideVoterIdentity)
+		newGame, err = s.PokerDataSvc.CreateGame(ctx, sessionUserID, b.Name, b.EstimationScaleID, b.PointValuesAllowed, b.Stories, b.AutoFinishVoting, b.PointAverageRounding, b.JoinCode, b.FacilitatorCode, b.HideVoterIdentity, b.SessionMode, b.Deadline)
 		if err != nil {
 			s.Logger.Ctx(ctx).Error("handlePokerCreate error", zap.Error(err),
 				zap.String("entity_user_id", sessionUserID), zap.String("poker_name", b.Name),

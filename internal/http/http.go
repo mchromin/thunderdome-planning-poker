@@ -336,6 +336,15 @@ func New(apiService Service, FSS fs.FS, HFS http.FileSystem) *Service {
 		router.Handle("DELETE "+prefix+"/api/battles/{battleId}/plans/{planId}", a.userOnly(a.handlePokerStoryDelete(pokerSvc)))
 		router.Handle(prefix+"/api/arena/{battleId}", pokerSvc.ServeBattleWs())
 
+		// async poker session endpoints
+		router.Handle("GET "+prefix+"/api/battles/{battleId}/async", a.userOnly(a.handleAsyncGetGame()))
+		router.Handle("POST "+prefix+"/api/battles/{battleId}/stories/{storyId}/vote", a.userOnly(a.handleAsyncSetVote()))
+		router.Handle("DELETE "+prefix+"/api/battles/{battleId}/stories/{storyId}/vote", a.userOnly(a.handleAsyncRetractVote()))
+		router.Handle("POST "+prefix+"/api/battles/{battleId}/stories/{storyId}/comments", a.userOnly(a.handleAsyncUpsertComment()))
+		router.Handle("DELETE "+prefix+"/api/battles/{battleId}/stories/{storyId}/comments/{commentId}", a.userOnly(a.handleAsyncDeleteComment()))
+		router.Handle("POST "+prefix+"/api/battles/{battleId}/stories/{storyId}/finalize", a.userOnly(a.handleAsyncFinalizeStory()))
+		router.Handle("POST "+prefix+"/api/battles/{battleId}/stories/{storyId}/reopen", a.userOnly(a.handleAsyncReopenStory()))
+
 		// estimation scales
 		// Public estimation scale routes
 		router.Handle("GET "+prefix+"/api/estimation-scales/public", a.userOnly(a.handleGetPublicEstimationScales()))
