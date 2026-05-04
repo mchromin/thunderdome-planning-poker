@@ -46,6 +46,8 @@
     joinCode: '',
     leaderCode: '',
     selectedTeam: '',
+    sessionMode: 'sync',
+    deadline: '',
   };
   let pokerSettings = $state({ ...defaultSettings });
   let teamPokerSettings = {};
@@ -115,6 +117,11 @@
       joinCode: pokerSettings.joinCode,
       leaderCode: pokerSettings.leaderCode,
       estimationScaleId: selectedEstimationScale,
+      sessionMode: pokerSettings.sessionMode || 'sync',
+      deadline:
+        pokerSettings.sessionMode === 'async' && pokerSettings.deadline
+          ? new Date(pokerSettings.deadline).toISOString()
+          : null,
     };
 
     if (scope !== 'project' && pokerSettings.selectedTeam !== '') {
@@ -356,6 +363,35 @@
           </option>
         {/each}
       </SelectInput>
+    </div>
+  {/if}
+
+  <div class="mb-4">
+    <label class="block text-gray-700 dark:text-gray-400 text-sm font-bold mb-2" for="sessionMode">
+      Session Mode
+    </label>
+    <SelectInput bind:value={pokerSettings.sessionMode} id="sessionMode" name="sessionMode">
+      <option value="sync">Live</option>
+      <option value="async">Async</option>
+    </SelectInput>
+    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+      Live sessions require everyone to vote in real time. Async sessions let participants vote and comment on stories
+      whenever they want.
+    </p>
+  </div>
+
+  {#if pokerSettings.sessionMode === 'async'}
+    <div class="mb-4">
+      <label class="block text-gray-700 dark:text-gray-400 text-sm font-bold mb-2" for="deadline">
+        Deadline (optional)
+      </label>
+      <input
+        type="datetime-local"
+        id="deadline"
+        name="deadline"
+        bind:value={pokerSettings.deadline}
+        class="bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-200 rounded p-2 w-full"
+      />
     </div>
   {/if}
 

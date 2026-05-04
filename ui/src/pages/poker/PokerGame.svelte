@@ -20,6 +20,7 @@
   import SubMenu from '../../components/global/SubMenu.svelte';
   import SubMenuItem from '../../components/global/SubMenuItem.svelte';
   import VotingMetrics from '../../components/poker/VotingMetrics.svelte';
+  import AsyncStoryPanel from '../../components/poker/AsyncStoryPanel.svelte';
   import FullpageLoader from '../../components/global/FullpageLoader.svelte';
   import JoinCodeForm from '../../components/global/JoinCodeForm.svelte';
   import { getWebsocketAddress } from '../../websocketUtil';
@@ -412,6 +413,38 @@
   let showVotingResults = $derived(pokerGame.activePlanId !== '' && pokerGame.votingLocked === true);
 
   let isFacilitator = $derived(pokerGame.leaders.includes($user.id));
+  let isAsync = $derived(pokerGame.sessionMode === 'async');
+  let selectedAsyncStoryId: string = $state('');
+  let asyncStory = $derived(
+    isAsync ? pokerGame.plans.find(p => p.id === selectedAsyncStoryId) || pokerGame.plans[0] : undefined,
+  );
+
+  async function refreshAsyncGame() {
+    try {
+      const res = await xfetch(`/api/battles/${battleId}/async`);
+      const result = await res.json();
+      if (result && result.data) {
+        pokerGame = result.data;
+        points = pokerGame.pointValuesAllowed;
+        if (!selectedAsyncStoryId && pokerGame.plans.length > 0) {
+          selectedAsyncStoryId = pokerGame.plans[0].id;
+        }
+      }
+    } catch (e) {
+      // ignore; socket fallback will continue
+    }
+  }
+
+  $effect(() => {
+    if (isAsync && !isLoading && pokerGame.id) {
+      // initial async refresh once we know it's async
+      refreshAsyncGame();
+    }
+  });
+
+  function selectAsyncStory(storyId: string) {
+    selectedAsyncStoryId = storyId;
+  }
 
   function concedeGame() {
     sendSocketEvent('concede_battle', '');
@@ -517,7 +550,51 @@
 
   <div class="flex flex-wrap mb-4 -mx-4">
     <div class="w-full lg:w-3/4 px-4">
-      {#if !gameOver}
+      {#if isAsync && !gameOver}
+        <div class="mb-4 bg-white dark:bg-gray-800 rounded-lg shadow p-3">
+          <div class="flex flex-wrap items-center gap-2 mb-2">
+            <span class="px-2 py-0.5 rounded bg-purple-100 dark:bg-purple-900 dark:text-purple-200 text-purple-800 text-sm">
+              Async session
+            </span>
+            {#if pokerGame.deadline}
+              <span class="text-sm text-gray-500 dark:text-gray-400">
+                Deadline: {new Date(pokerGame.deadline).toLocaleString()}
+                {#if new Date(pokerGame.deadline) < new Date()}
+                  <span class="ms-1 text-red-600">(past)</span>
+                {/if}
+              </span>
+            {/if}
+          </div>
+          <label class="block text-sm font-semibold mb-1 dark:text-gray-200" for="async-story-select">Story</label>
+          <select
+            id="async-story-select"
+            bind:value={selectedAsyncStoryId}
+            class="w-full bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded p-2 dark:text-gray-200"
+          >
+            {#each pokerGame.plans as p}
+              <option value={p.id}>
+                {p.referenceId ? `[${p.referenceId}] ` : ''}{p.name || 'Untitled'} {p.points
+                  ? `— ${p.points}`
+                  : p.skipped
+                    ? '— skipped'
+                    : ''}
+              </option>
+            {/each}
+          </select>
+        </div>
+
+        {#if asyncStory}
+          <AsyncStoryPanel
+            game={pokerGame}
+            story={asyncStory}
+            {isFacilitator}
+            {points}
+            {notifications}
+            {xfetch}
+            onChange={refreshAsyncGame}
+          />
+        {/if}
+      {:else if !gameOver}
         {#if showVotingResults}
           <div class=" mb-2 md:mb-4">
             <VotingMetrics
@@ -544,15 +621,17 @@
         {/if}
       {/if}
 
-      <PokerStories
-        plans={pokerGame.plans}
-        {isFacilitator}
-        {sendSocketEvent}
-        {notifications}
-        {xfetch}
-        gameId={pokerGame.id}
-        {gameOver}
-      />
+      {#if !isAsync}
+        <PokerStories
+          plans={pokerGame.plans}
+          {isFacilitator}
+          {sendSocketEvent}
+          {notifications}
+          {xfetch}
+          gameId={pokerGame.id}
+          {gameOver}
+        />
+      {/if}
     </div>
 
     <div class="w-full lg:w-1/4 px-4">
@@ -579,7 +658,7 @@
           {/if}
         {/each}
 
-        {#if isFacilitator && !gameOver}
+        {#if isFacilitator && !gameOver && !isAsync}
           <VotingControls
             {points}
             planId={pokerGame.activePlanId}
