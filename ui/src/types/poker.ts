@@ -17,6 +17,8 @@ export type PokerGame = {
   teamId?: string;
   endTime?: Date;
   endReason?: string;
+  sessionMode?: 'sync' | 'async';
+  deadline?: Date;
 };
 
 export type PokerStory = {
@@ -35,11 +37,23 @@ export type PokerStory = {
   voteStartTime: Date;
   votes: Array<PokerStoryVote>;
   position: number;
+  comments?: Array<PokerStoryComment>;
 };
 
 export type PokerStoryVote = {
   vote: string;
   warriorId: string;
+};
+
+export type PokerStoryComment = {
+  id: string;
+  storyId: string;
+  pokerId: string;
+  userId: string;
+  userName: string;
+  comment: string;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type PokerUser = {
