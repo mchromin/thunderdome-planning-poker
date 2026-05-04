@@ -10,52 +10,26 @@ import (
 	"github.com/StevenWeathers/thunderdome-planning-poker/thunderdome"
 )
 
-// asyncGameVisible returns a copy of the poker game with vote/comment visibility
-// adjusted for the requesting user. Facilitators see everything (subject to
-// HideVoterIdentity). Non-facilitators see only their own votes/comments on
-// stories that are not yet finalized.
+// isFacilitatorByID checks the loaded poker game's facilitators slice.
+func isFacilitatorByID(game *thunderdome.Poker, userID string) bool {
+	for _, f := range game.Facilitators {
+		if f == userID {
+			return true
+		}
+	}
+	return false
+}
+
+// asyncGameVisible used to filter votes/comments per user before responding;
+// that responsibility now lives in the data layer (GetGameByID) so the same
+// visibility rules apply to WebSocket init as well as REST. We keep this
+// function as a small helper that hides the facilitator code from
+// non-facilitators in the response.
 func (s *Service) asyncGameVisible(game *thunderdome.Poker, userID string) *thunderdome.Poker {
 	if game == nil {
 		return nil
 	}
-	isFacilitator := false
-	for _, fid := range game.Facilitators {
-		if fid == userID {
-			isFacilitator = true
-			break
-		}
-	}
-
-	for _, st := range game.Stories {
-		finalized := st.Points != "" || st.Skipped
-		if !finalized && !isFacilitator {
-			// hide other users' votes
-			filteredVotes := make([]*thunderdome.Vote, 0, len(st.Votes))
-			for _, v := range st.Votes {
-				if v.UserID == userID {
-					filteredVotes = append(filteredVotes, v)
-				}
-			}
-			st.Votes = filteredVotes
-
-			// hide other users' comments
-			filteredComments := make([]*thunderdome.PokerStoryComment, 0, len(st.Comments))
-			for _, c := range st.Comments {
-				if c.UserID == userID {
-					filteredComments = append(filteredComments, c)
-				}
-			}
-			st.Comments = filteredComments
-		} else if isFacilitator && game.HideVoterIdentity {
-			// mask user identity for facilitators when configured
-			for _, v := range st.Votes {
-				v.UserID = ""
-			}
-		}
-	}
-
-	// don't leak facilitator code to non-facilitators
-	if !isFacilitator {
+	if !isFacilitatorByID(game, userID) {
 		game.FacilitatorCode = ""
 	}
 	return game
@@ -137,15 +111,6 @@ func (s *Service) confirmAsyncParticipant(w http.ResponseWriter, r *http.Request
 		}
 	}
 	return game, true
-}
-
-func isFacilitator(game *thunderdome.Poker, userID string) bool {
-	for _, f := range game.Facilitators {
-		if f == userID {
-			return true
-		}
-	}
-	return false
 }
 
 func findStory(game *thunderdome.Poker, storyID string) *thunderdome.Story {
@@ -364,7 +329,7 @@ func (s *Service) handleAsyncDeleteComment() http.HandlerFunc {
 		}
 
 		// allow author or facilitator only
-		if existing.UserID != sessionUserID && !isFacilitator(game, sessionUserID) {
+		if existing.UserID != sessionUserID && !isFacilitatorByID(game, sessionUserID) {
 			s.Failure(w, r, http.StatusForbidden, Errorf(EUNAUTHORIZED, "REQUIRES_FACILITATOR"))
 			return
 		}
@@ -400,7 +365,7 @@ func (s *Service) handleAsyncFinalizeStory() http.HandlerFunc {
 		if !ok {
 			return
 		}
-		if !isFacilitator(game, sessionUserID) {
+		if !isFacilitatorByID(game, sessionUserID) {
 			s.Failure(w, r, http.StatusForbidden, Errorf(EUNAUTHORIZED, "REQUIRES_FACILITATOR"))
 			return
 		}
@@ -448,7 +413,7 @@ func (s *Service) handleAsyncReopenStory() http.HandlerFunc {
 		if !ok {
 			return
 		}
-		if !isFacilitator(game, sessionUserID) {
+		if !isFacilitatorByID(game, sessionUserID) {
 			s.Failure(w, r, http.StatusForbidden, Errorf(EUNAUTHORIZED, "REQUIRES_FACILITATOR"))
 			return
 		}

@@ -438,8 +438,13 @@ func (d *Service) GetGameByID(pokerID string, userID string) (*thunderdome.Poker
 	b.Stories = d.GetStories(pokerID, userID)
 
 	// In async mode load comments for each story so participants/facilitators
-	// can see them. Visibility (which comments to expose) is enforced by the
-	// HTTP handler based on user role and finalization state.
+	// can see them, then apply visibility rules so this method is safe to use
+	// from any path (REST, WebSocket init, etc.):
+	//   - Facilitators always see everything; if hide_voter_identity is set,
+	//     vote warriorIds are masked.
+	//   - Non-facilitators only see their own vote and comment on
+	//     non-finalized stories. After a story is finalized (points set or
+	//     skipped) they see all votes/comments.
 	if b.SessionMode == thunderdome.PokerSessionModeAsync && len(b.Stories) > 0 {
 		comments, cErr := d.GetGameComments(pokerID)
 		if cErr == nil {
@@ -452,6 +457,40 @@ func (d *Service) GetGameByID(pokerID string, userID string) (*thunderdome.Poker
 					st.Comments = cs
 				} else {
 					st.Comments = []*thunderdome.PokerStoryComment{}
+				}
+			}
+		}
+
+		for _, st := range b.Stories {
+			finalized := st.Points != "" || st.Skipped
+			if !finalized && !isFacilitator {
+				filteredVotes := make([]*thunderdome.Vote, 0, len(st.Votes))
+				for _, v := range st.Votes {
+					if v.UserID == userID {
+						filteredVotes = append(filteredVotes, v)
+					}
+				}
+				st.Votes = filteredVotes
+
+				filteredComments := make([]*thunderdome.PokerStoryComment, 0, len(st.Comments))
+				for _, c := range st.Comments {
+					if c.UserID == userID {
+						filteredComments = append(filteredComments, c)
+					}
+				}
+				st.Comments = filteredComments
+			} else if b.HideVoterIdentity && !isFacilitator {
+				// finalized story but the game wants identities hidden from participants
+				for _, v := range st.Votes {
+					if v.UserID != userID {
+						v.UserID = ""
+					}
+				}
+				for _, c := range st.Comments {
+					if c.UserID != userID {
+						c.UserID = ""
+						c.UserName = ""
+					}
 				}
 			}
 		}
