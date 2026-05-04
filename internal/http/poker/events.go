@@ -169,6 +169,8 @@ func (b *Service) Revise(ctx context.Context, pokerID string, userID string, eve
 		rb.JoinCode,
 		rb.LeaderCode,
 		rb.TeamID,
+		"",
+		nil,
 	)
 	if err != nil {
 		return nil, nil, err, false

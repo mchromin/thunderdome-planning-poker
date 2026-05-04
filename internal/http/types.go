@@ -342,11 +342,11 @@ type UserDataSvc interface {
 
 type PokerDataSvc interface {
 	// CreateGame creates a new poker game
-	CreateGame(ctx context.Context, facilitatorID string, name string, estimationScaleID string, pointValuesAllowed []string, stories []*thunderdome.Story, autoFinishVoting bool, pointAverageRounding string, joinCode string, facilitatorCode string, hideVoterIdentity bool) (*thunderdome.Poker, error)
+	CreateGame(ctx context.Context, facilitatorID string, name string, estimationScaleID string, pointValuesAllowed []string, stories []*thunderdome.Story, autoFinishVoting bool, pointAverageRounding string, joinCode string, facilitatorCode string, hideVoterIdentity bool, sessionMode string, deadline *time.Time) (*thunderdome.Poker, error)
 	// TeamCreateGame creates a new poker game for a team
-	TeamCreateGame(ctx context.Context, teamID string, facilitatorID string, name string, estimationScaleID string, pointValuesAllowed []string, stories []*thunderdome.Story, autoFinishVoting bool, pointAverageRounding string, joinCode string, facilitatorCode string, hideVoterIdentity bool) (*thunderdome.Poker, error)
+	TeamCreateGame(ctx context.Context, teamID string, facilitatorID string, name string, estimationScaleID string, pointValuesAllowed []string, stories []*thunderdome.Story, autoFinishVoting bool, pointAverageRounding string, joinCode string, facilitatorCode string, hideVoterIdentity bool, sessionMode string, deadline *time.Time) (*thunderdome.Poker, error)
 	// UpdateGame updates an existing poker game
-	UpdateGame(pokerID string, name string, pointValuesAllowed []string, autoFinishVoting bool, pointAverageRounding string, hideVoterIdentity bool, joinCode string, facilitatorCode string, teamID string) error
+	UpdateGame(pokerID string, name string, pointValuesAllowed []string, autoFinishVoting bool, pointAverageRounding string, hideVoterIdentity bool, joinCode string, facilitatorCode string, teamID string, sessionMode string, deadline *time.Time) error
 	// GetFacilitatorCode retrieves the facilitator code for a poker game
 	GetFacilitatorCode(pokerID string) (string, error)
 	// GetGameByID retrieves a poker game by its ID
@@ -405,6 +405,20 @@ type PokerDataSvc interface {
 	ArrangeStory(pokerID string, storyID string, beforeStoryID string) ([]*thunderdome.Story, error)
 	// FinalizeStory finalizes the points for a story in a poker game
 	FinalizeStory(pokerID string, storyID string, points string) ([]*thunderdome.Story, error)
+	// ReopenStory reopens a finalized async story for further voting
+	ReopenStory(pokerID string, storyID string) ([]*thunderdome.Story, error)
+	// GetGameSessionMode returns the session mode for a poker game
+	GetGameSessionMode(pokerID string) (string, error)
+	// UpsertStoryComment inserts or updates a user's async story comment
+	UpsertStoryComment(pokerID string, storyID string, userID string, comment string) (*thunderdome.PokerStoryComment, error)
+	// DeleteStoryComment removes an async story comment
+	DeleteStoryComment(pokerID string, commentID string) error
+	// GetStoryCommentByID retrieves a single async story comment
+	GetStoryCommentByID(commentID string) (*thunderdome.PokerStoryComment, error)
+	// GetStoryComments retrieves all async comments for a single story
+	GetStoryComments(storyID string) ([]*thunderdome.PokerStoryComment, error)
+	// GetGameComments retrieves all async comments for a poker game
+	GetGameComments(pokerID string) ([]*thunderdome.PokerStoryComment, error)
 	// GetEstimationScales retrieves a list of estimation scales
 	GetEstimationScales(ctx context.Context, limit, offset int) ([]*thunderdome.EstimationScale, int, error)
 	// GetPublicEstimationScales retrieves a list of public estimation scales

@@ -27,7 +27,7 @@ type Config struct {
 
 type PokerDataSvc interface {
 	// UpdateGame updates an existing poker game
-	UpdateGame(pokerID string, name string, pointValuesAllowed []string, autoFinishVoting bool, pointAverageRounding string, hideVoterIdentity bool, joinCode string, facilitatorCode string, teamID string) error
+	UpdateGame(pokerID string, name string, pointValuesAllowed []string, autoFinishVoting bool, pointAverageRounding string, hideVoterIdentity bool, joinCode string, facilitatorCode string, teamID string, sessionMode string, deadline *time.Time) error
 	// GetFacilitatorCode retrieves the facilitator code for a poker game
 	GetFacilitatorCode(pokerID string) (string, error)
 	// GetGameByID retrieves a poker game by its ID
