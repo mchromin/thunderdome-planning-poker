@@ -1,10 +1,11 @@
 <script lang="ts">
   import LL from '../../i18n/i18n-svelte';
-  import PointCard from './PointCard.svelte';
   import VotingMetrics from './VotingMetrics.svelte';
   import HollowButton from '../global/HollowButton.svelte';
+  import JiraIssueComments from './JiraIssueComments.svelte';
   import SolidButton from '../global/SolidButton.svelte';
   import { user } from '../../stores';
+  import { rewriteJiraImageSrcs } from '../../lib/jiraDescription';
   import type { PokerGame, PokerStory, PokerStoryComment } from '../../types/poker';
   import type { ApiClient } from '../../types/apiclient';
   import type { NotificationService } from '../../types/notifications';
@@ -24,35 +25,76 @@
 
   let commentDraft: string = $state('');
   let finalizePoints: string = $state('');
+  let lastSyncedStoryId: string = $state('');
+  // Optimistic local override of the user's current vote. While set, it wins
+  // over what the server says so clicks feel instant. Cleared once the
+  // *latest* request's response has been reflected by the server.
+  let pendingVote: string | null = $state(null);
+  // Monotonic counter so out-of-order responses from rapid clicks don't
+  // overwrite a newer click's optimistic state.
+  let voteSeq = 0;
 
-  let myVote = $derived((story.votes || []).find(v => v.warriorId === $user.id)?.vote || '');
+  let serverVote = $derived((story.votes || []).find(v => v.warriorId === $user.id)?.vote || '');
+  let myVote = $derived(pendingVote !== null ? pendingVote : serverVote);
   let myComment = $derived((story.comments || []).find(c => c.userId === $user.id));
   let isFinalized = $derived(story.points !== '' || story.skipped);
   let canEdit = $derived(!isFinalized);
 
-  // Pre-fill the editor with the user's existing comment when story changes.
+  // Pre-fill the editor only when the selected story changes. Avoid resetting
+  // on every websocket-driven refresh, otherwise typed-but-unsaved input is
+  // wiped out on each incoming event.
   $effect(() => {
-    commentDraft = myComment ? myComment.comment : '';
-    finalizePoints = story.points || '';
+    if (story.id !== lastSyncedStoryId) {
+      lastSyncedStoryId = story.id;
+      commentDraft = myComment ? myComment.comment : '';
+      finalizePoints = story.points || '';
+    }
   });
 
   function setVote(point: string) {
     if (!canEdit) return;
+    const seq = ++voteSeq;
+    pendingVote = point;
     xfetch(`/api/battles/${game.id}/stories/${story.id}/vote`, {
       method: 'POST',
       body: { value: point },
     })
       .then(res => res.json())
       .then(() => onChange())
-      .catch(() => notifications.danger('Failed to cast vote'));
+      .catch(() => {
+        if (seq === voteSeq) {
+          pendingVote = null;
+          notifications.danger('Failed to cast vote');
+        }
+      })
+      .finally(() => {
+        // Only the latest click clears the optimistic state. Older requests
+        // (superseded by a newer click) leave pendingVote alone so the UI
+        // never flashes back to a stale value.
+        if (seq === voteSeq) {
+          pendingVote = null;
+        }
+      });
   }
 
   function retractVote() {
     if (!canEdit) return;
+    const seq = ++voteSeq;
+    pendingVote = '';
     xfetch(`/api/battles/${game.id}/stories/${story.id}/vote`, { method: 'DELETE' })
       .then(res => res.json())
       .then(() => onChange())
-      .catch(() => notifications.danger('Failed to retract vote'));
+      .catch(() => {
+        if (seq === voteSeq) {
+          pendingVote = null;
+          notifications.danger('Failed to retract vote');
+        }
+      })
+      .finally(() => {
+        if (seq === voteSeq) {
+          pendingVote = null;
+        }
+      });
   }
 
   function saveComment() {
@@ -118,29 +160,50 @@
     {/if}
   </div>
   {#if story.description}
-    <div class="text-gray-700 dark:text-gray-300 mb-2 prose dark:prose-invert max-w-none">
-      {@html story.description}
+    <div class="text-gray-700 dark:text-gray-300 mb-2 unreset">
+      {@html rewriteJiraImageSrcs(story.description)}
     </div>
   {/if}
   {#if story.acceptanceCriteria}
-    <div class="text-gray-600 dark:text-gray-400 mb-2 prose dark:prose-invert max-w-none">
+    <div class="text-gray-600 dark:text-gray-400 mb-2 unreset">
       <strong>Acceptance criteria:</strong>
-      {@html story.acceptanceCriteria}
+      {@html rewriteJiraImageSrcs(story.acceptanceCriteria)}
     </div>
+  {/if}
+
+  {#if story.referenceId && story.link}
+    <JiraIssueComments issueKey={story.referenceId} jiraLink={story.link} {xfetch} />
   {/if}
 
   <div class="mt-4">
     <h4 class="font-semibold mb-2 dark:text-gray-200">Your vote</h4>
-    <div class="flex flex-wrap -mx-2">
+    <div class="flex flex-wrap items-center gap-2">
       {#each points as point}
-        <div class="w-1/4 md:w-1/6 px-2 mb-2">
-          <PointCard {point} active={myVote === point} isLocked={!canEdit} on:voted={() => setVote(point)} on:voteRetraction={retractVote} />
-        </div>
+        {@const isActive = myVote === point}
+        <button
+          type="button"
+          disabled={!canEdit}
+          onclick={() => (isActive ? retractVote() : setVote(point))}
+          class="min-w-[2.5rem] h-10 px-3 rounded border text-sm font-semibold font-rajdhani
+                 transition-colors select-none
+                 {isActive
+            ? 'border-green-500 bg-green-100 text-green-700 dark:border-lime-500 dark:bg-lime-100 dark:text-lime-800'
+            : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:bg-gray-700 dark:border-gray-500 dark:text-gray-200 dark:hover:bg-gray-600'}
+                 {!canEdit ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}"
+        >
+          {point}
+        </button>
       {/each}
+      {#if myVote && canEdit}
+        <button
+          type="button"
+          onclick={retractVote}
+          class="ms-2 h-10 px-3 rounded border border-red-400 text-red-600 text-sm hover:bg-red-50 dark:hover:bg-red-900/20"
+        >
+          Retract
+        </button>
+      {/if}
     </div>
-    {#if myVote && canEdit}
-      <HollowButton color="red" onClick={retractVote}>Retract vote</HollowButton>
-    {/if}
   </div>
 
   <div class="mt-4">

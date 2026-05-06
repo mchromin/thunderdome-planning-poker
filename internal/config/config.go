@@ -74,6 +74,13 @@ func InitConfig(logger *otelzap.Logger) Config {
 	viper.SetDefault("config.allow_guests", true)
 	viper.SetDefault("config.allow_registration", true)
 	viper.SetDefault("config.allow_jira_import", true)
+	// Jira custom-field id used to store story points. Varies per Jira deployment;
+	// override via config or env (e.g. CONFIG_JIRA_STORY_POINTS_FIELD).
+	viper.SetDefault("config.jira_story_points_field", "customfield_11204")
+	// Allow operators to disable TLS verification or trust an extra CA bundle
+	// when talking to a corporate / self-signed Jira host.
+	viper.SetDefault("config.jira_insecure_skip_verify", false)
+	viper.SetDefault("config.jira_ca_bundle", "")
 	viper.SetDefault("config.allow_csv_import", true)
 	viper.SetDefault("config.default_locale", "en")
 	viper.SetDefault("config.friendly_ui_verbs", false)

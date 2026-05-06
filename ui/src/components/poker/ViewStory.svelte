@@ -3,6 +3,7 @@
   import LL from '../../i18n/i18n-svelte';
   import { Ban, ChevronDown, ChevronsDown, ChevronsUp, ChevronUp, ExternalLink } from 'lucide-svelte';
   import Bars2 from '../icons/Bars2.svelte';
+  import { rewriteJiraImageSrcs } from '../../lib/jiraDescription';
 
   interface Props {
     togglePlanView?: any;
@@ -102,7 +103,7 @@
       {$LL.planDescription()}
     </div>
     <div class="unreset dark:text-white">
-      {@html description}
+      {@html rewriteJiraImageSrcs(description)}
     </div>
   </div>
   <div class="mb-4">
@@ -110,7 +111,7 @@
       {$LL.planAcceptanceCriteria()}
     </div>
     <div class="unreset dark:text-white">
-      {@html acceptanceCriteria}
+      {@html rewriteJiraImageSrcs(acceptanceCriteria)}
     </div>
   </div>
 </Modal>

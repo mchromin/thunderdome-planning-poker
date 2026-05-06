@@ -12,6 +12,26 @@
     margin: 1em 0;
   }
 
+  & a {
+    color: #1d4ed8; /* blue-700 */
+    text-decoration: underline;
+  }
+
+  & a:hover {
+    color: #1e40af; /* blue-800 */
+  }
+}
+
+.dark .unreset a {
+  color: #60a5fa; /* blue-400 */
+}
+
+.dark .unreset a:hover {
+  color: #93c5fd; /* blue-300 */
+}
+
+.unreset {
+
   & blockquote,
   & figure {
     margin: 1em 40px;

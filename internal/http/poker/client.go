@@ -75,6 +75,14 @@ func (b *Service) ServeBattleWs() http.HandlerFunc {
 		// check users battle active status
 		userErr := b.PokerService.GetUserActiveStatus(roomID, user.ID)
 		userAllowed := userErr == nil || (errors.Is(userErr, sql.ErrNoRows) && battle.JoinCode == "")
+		// In async sessions, multiple tabs / reconnects from the same user are allowed —
+		// there's no real-time exclusivity requirement, so suppress the duplicate-session
+		// guard. Any prior socket for this user is forcibly retired below.
+		if userErr != nil && userErr.Error() == "DUPLICATE_BATTLE_USER" && battle.SessionMode == thunderdome.PokerSessionModeAsync {
+			b.PokerService.RetreatUser(roomID, user.ID)
+			userErr = nil
+			userAllowed = true
+		}
 		if userErr != nil && !errors.Is(userErr, sql.ErrNoRows) {
 			usrErrMsg := userErr.Error()
 			var authErr wshub.AuthError

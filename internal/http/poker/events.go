@@ -323,6 +323,12 @@ func (b *Service) StoryFinalize(ctx context.Context, pokerID string, userID stri
 	updatedStorys, _ := json.Marshal(plans)
 	msg := wshub.CreateSocketEvent("plan_finalized", string(updatedStorys), "")
 
+	// Best-effort external sync (e.g. push points to Jira). Detached so a slow
+	// or failing third party cannot block the websocket event flow.
+	if b.PointsSyncHook != nil {
+		go b.PointsSyncHook(context.Background(), pokerID, p.ID, p.Points, userID)
+	}
+
 	return nil, msg, nil, false
 }
 

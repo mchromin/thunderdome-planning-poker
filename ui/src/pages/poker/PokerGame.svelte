@@ -415,6 +415,7 @@
   let isFacilitator = $derived(pokerGame.leaders.includes($user.id));
   let isAsync = $derived(pokerGame.sessionMode === 'async');
   let selectedAsyncStoryId: string = $state('');
+  let lastRefreshedAsyncId = $state('');
   let asyncStory = $derived(
     isAsync ? pokerGame.plans.find(p => p.id === selectedAsyncStoryId) || pokerGame.plans[0] : undefined,
   );
@@ -435,9 +436,12 @@
     }
   }
 
+  // Trigger the initial async refresh exactly once per game id. Without this
+  // gate the effect re-fires every time refreshAsyncGame() reassigns pokerGame,
+  // causing a request storm against /async.
   $effect(() => {
-    if (isAsync && !isLoading && pokerGame.id) {
-      // initial async refresh once we know it's async
+    if (isAsync && !isLoading && pokerGame.id && pokerGame.id !== lastRefreshedAsyncId) {
+      lastRefreshedAsyncId = pokerGame.id;
       refreshAsyncGame();
     }
   });

@@ -48,10 +48,18 @@
             if (customFields) {
               for (let j = 0; j < customFields.length; j++) {
                 const cfName = customFields[j].querySelector('customfieldname').innerHTML;
-                const cfValues = customFields[j].querySelector('customfieldvalues').innerHTML;
+                // Each customfield can contain multiple <customfieldvalue> children.
+                // Their text content is entity-encoded (e.g. "&lt;br/&gt;"), so we
+                // must concatenate the inner HTML of each value and run it through
+                // he.decode to obtain real HTML — same approach as description.
+                const cfValueNodes =
+                  customFields[j].querySelectorAll('customfieldvalues>customfieldvalue');
+                const cfValuesHtml = Array.from(cfValueNodes)
+                  .map(n => n.innerHTML)
+                  .join('\n');
 
                 if (cfName.toLowerCase() === 'acceptance criteria') {
-                  acceptanceCriteria = cfValues;
+                  acceptanceCriteria = he.decode(cfValuesHtml);
                 }
               }
             }

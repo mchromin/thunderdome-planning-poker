@@ -92,6 +92,11 @@ type Service struct {
 	AuthService           AuthDataSvc
 	PokerService          PokerDataSvc
 	hub                   *wshub.Hub
+	// PointsSyncHook, if set, is invoked after a successful StoryFinalize over
+	// the websocket so external systems (e.g. Jira) can be updated. It runs
+	// asynchronously and any error is the hook's responsibility to log; a
+	// failure here must not affect the local finalize.
+	PointsSyncHook func(ctx context.Context, pokerID, storyID, points, userID string)
 }
 
 // New returns a new battle with websocket hub/client and event handlers

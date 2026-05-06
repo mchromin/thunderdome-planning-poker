@@ -18,7 +18,8 @@ spec:
     spec:
       containers:
         - name: {{ .Values.app.name }}
-          image: {{ .Values.app.container.image }}  
+          image: {{ .Values.app.container.image }}
+          imagePullPolicy: {{ .Values.app.container.imagePullPolicy | default "Always" }}
           ports:
           {{- range .Values.app.ports }}
             - containerPort: {{ .targetPort }}

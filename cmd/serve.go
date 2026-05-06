@@ -7,6 +7,9 @@ import (
 	jiraData "github.com/StevenWeathers/thunderdome-planning-poker/internal/db/jira"
 	"github.com/StevenWeathers/thunderdome-planning-poker/internal/db/project"
 
+	jiracloud "github.com/StevenWeathers/thunderdome-planning-poker/internal/atlassian/jira"
+	jiradatacenter "github.com/StevenWeathers/thunderdome-planning-poker/internal/atlassian/jiraDataCenter"
+	"github.com/StevenWeathers/thunderdome-planning-poker/internal/atlassian/jirapointssync"
 	"github.com/StevenWeathers/thunderdome-planning-poker/internal/webhook/subscription"
 
 	"github.com/StevenWeathers/thunderdome-planning-poker/internal/cookie"
@@ -141,6 +144,25 @@ func serve(embedUseOS bool) {
 	adminService := &admin.Service{DB: d.DB, Logger: logger}
 	subscriptionDataSvc := &subscriptionData.Service{DB: d.DB, Logger: logger}
 	jiraDataSvc := &jiraData.Service{DB: d.DB, Logger: logger, AESHashKey: d.Config.AESHashkey}
+
+	// Configure TLS for the Jira points-sync HTTP client. Corporate Jira (e.g.
+	// Data Center behind an internal CA) often requires either an extra trust
+	// bundle or, for trusted internal networks, a verification override.
+	if err := jirapointssync.ConfigureTLS(jirapointssync.TLSOptions{
+		InsecureSkipVerify: c.Config.JiraInsecureSkipVerify,
+		CABundlePath:       c.Config.JiraCABundle,
+	}); err != nil {
+		logger.Warn("jira points sync: TLS config failed; falling back to defaults", zap.Error(err))
+	}
+	// Apply the same TLS override to the Jira SDK clients used for JQL search /
+	// import. Without this, JQL imports against a corporate self-signed Jira
+	// fail with x509 even though points-sync / image proxy work.
+	jiradatacenter.ConfigureTLS(jiradatacenter.TLSOptions{
+		InsecureSkipVerify: c.Config.JiraInsecureSkipVerify,
+	})
+	jiracloud.ConfigureTLS(jiracloud.TLSOptions{
+		InsecureSkipVerify: c.Config.JiraInsecureSkipVerify,
+	})
 	retroTemplateDataSvc := &retrotemplate.Service{DB: d.DB, Logger: logger}
 	projectDataSvc := &project.Service{DB: d.DB, Logger: logger}
 
@@ -217,6 +239,8 @@ func serve(embedUseOS bool) {
 			AllowRegistration:         c.Config.AllowRegistration,
 			ShowActiveCountries:       c.Config.ShowActiveCountries,
 			SubscriptionsEnabled:      c.Config.SubscriptionsEnabled,
+			JiraStoryPointsField:      c.Config.JiraStoryPointsField,
+			JiraInsecureSkipVerify:    c.Config.JiraInsecureSkipVerify,
 			GoogleAuth: http.AuthProvider{
 				Enabled: c.Auth.Google.Enabled,
 				AuthProviderConfig: thunderdome.AuthProviderConfig{
