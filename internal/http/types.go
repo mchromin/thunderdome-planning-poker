@@ -100,6 +100,14 @@ type Config struct {
 	AllowRegistration         bool
 	ShowActiveCountries       bool
 	SubscriptionsEnabled      bool
+	// JiraStoryPointsField is the customfield id used to write story points to
+	// Jira when a poker story is finalized. Defaults to "customfield_11204".
+	JiraStoryPointsField string
+	// JiraInsecureSkipVerify disables TLS verification for Jira-bound HTTP
+	// calls (points sync + attachment proxy). Use with caution; prefer pinning
+	// a corporate CA via the JIRA_CA_BUNDLE config option in the points-sync
+	// path. The attachment proxy applies the same toggle.
+	JiraInsecureSkipVerify bool
 
 	GoogleAuth AuthProvider
 	OIDCAuth   AuthProvider

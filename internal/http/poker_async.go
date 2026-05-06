@@ -392,6 +392,19 @@ func (s *Service) handleAsyncFinalizeStory() http.HandlerFunc {
 		}
 
 		updated, _ := s.PokerDataSvc.GetGameByID(gameID, sessionUserID)
+
+		// Best-effort: push the finalized points back to the linked Jira issue
+		// using the facilitator's Jira credentials. Fail-open — any error is
+		// logged and the local finalize remains successful.
+		if updated != nil {
+			for _, st := range updated.Stories {
+				if st != nil && st.ID == storyID {
+					s.pushPointsToJira(ctx, sessionUserID, st, rb.Points)
+					break
+				}
+			}
+		}
+
 		s.Success(w, r, http.StatusOK, s.asyncGameVisible(updated, sessionUserID), nil)
 	}
 }

@@ -21,6 +21,10 @@ services:
       DB_NAME: thunderdome
       DB_USER: thor
       DB_PASS: odinson
+      # Internal corporate Jira often uses a private CA. For local dev against
+      # such a host, skip TLS verification. Production should prefer
+      # CONFIG_JIRA_CA_BUNDLE pointing at a mounted PEM file.
+      CONFIG_JIRA_INSECURE_SKIP_VERIFY: "true"
     volumes:
       - ./etc:/etc/thunderdome
   db:

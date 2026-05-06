@@ -99,6 +99,8 @@ app:
         value: true
       - key: CONFIG_REQUIRE_TEAMS
         value: false
+      - key: CONFIG_JIRA_INSECURE_SKIP_VERIFY
+        value: true
       - key: AUTH_METHOD
         value: normal
       - key: FEATURE_POKER

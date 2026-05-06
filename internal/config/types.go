@@ -87,6 +87,9 @@ type AppConfig struct {
 	AllowGuests                 bool     `mapstructure:"allow_guests"`
 	AllowRegistration           bool     `mapstructure:"allow_registration"`
 	AllowJiraImport             bool     `mapstructure:"allow_jira_import"`
+	JiraStoryPointsField        string   `mapstructure:"jira_story_points_field"`
+	JiraInsecureSkipVerify      bool     `mapstructure:"jira_insecure_skip_verify"`
+	JiraCABundle                string   `mapstructure:"jira_ca_bundle"`
 	AllowCsvImport              bool     `mapstructure:"allow_csv_import"`
 	DefaultLocale               string   `mapstructure:"default_locale"`
 	AllowExternalApi            bool     `mapstructure:"allow_external_api"`

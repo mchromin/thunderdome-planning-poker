@@ -46,6 +46,8 @@ func New(apiService Service, FSS fs.FS, HFS http.FileSystem) *Service {
 
 	var a = &apiService
 	authProviderConfigs := make([]thunderdome.AuthProviderConfig, 0)
+	// Apply Jira TLS toggle to the attachment proxy.
+	configureJiraAttachmentClient(a.Config.JiraInsecureSkipVerify)
 	connectSrcCsp := []string{
 		"'self'",
 		getWebsocketConnectSrc(a.Config.SecureProtocol, a.Config.WebsocketSubdomain, a.Config.AppDomain),
@@ -84,6 +86,21 @@ func New(apiService Service, FSS fs.FS, HFS http.FileSystem) *Service {
 		AppDomain:          a.Config.AppDomain,
 		WebsocketSubdomain: a.Config.WebsocketConfig.WebsocketSubdomain,
 	}, a.Logger, a.Cookie.ValidateSessionCookie, a.Cookie.ValidateUserCookie, a.UserDataSvc, a.AuthDataSvc, a.PokerDataSvc)
+	// Wire optional Jira points-sync into the websocket finalize flow so live
+	// (sync) games push points to Jira as well as async games. The hook resolves
+	// the story by ID and uses the facilitator's Jira instance + credentials.
+	pokerSvc.PointsSyncHook = func(ctx context.Context, pokerID, storyID, points, userID string) {
+		game, err := a.PokerDataSvc.GetGameByID(pokerID, userID)
+		if err != nil || game == nil {
+			return
+		}
+		for _, st := range game.Stories {
+			if st != nil && st.ID == storyID {
+				a.pushPointsToJira(ctx, userID, st, points)
+				return
+			}
+		}
+	}
 	retroSvc := retro.New(retro.Config{
 		WriteWaitSec:       a.Config.WebsocketConfig.WriteWaitSec,
 		PongWaitSec:        a.Config.WebsocketConfig.PongWaitSec,
@@ -187,6 +204,13 @@ func New(apiService Service, FSS fs.FS, HFS http.FileSystem) *Service {
 	router.Handle("PUT "+prefix+"/api/users/{userId}/jira-instances/{instanceId}", a.userOnly(a.entityUserOnly(a.subscribedEntityUserOnly(a.handleJiraInstanceUpdate()))))
 	router.Handle("DELETE "+prefix+"/api/users/{userId}/jira-instances/{instanceId}", a.userOnly(a.entityUserOnly(a.subscribedEntityUserOnly(a.handleJiraInstanceDelete()))))
 	router.Handle("POST "+prefix+"/api/users/{userId}/jira-instances/{instanceId}/jql-story-search", a.userOnly(a.entityUserOnly(a.subscribedEntityUserOnly(a.handleJiraStoryJQLSearch()))))
+	// Authenticated proxy for Jira-hosted attachments (images embedded in
+	// imported descriptions). Uses the requesting user's stored credentials
+	// and refuses any URL outside their own Jira instance host(s).
+	router.Handle("GET "+prefix+"/api/users/{userId}/jira-attachment", a.userOnly(a.entityUserOnly(a.handleJiraAttachmentProxy())))
+	// Authenticated fetch of Jira issue comments using the requesting user's
+	// stored Jira credentials.
+	router.Handle("GET "+prefix+"/api/users/{userId}/jira-comments", a.userOnly(a.entityUserOnly(a.handleJiraIssueComments())))
 
 	if a.Config.ExternalAPIEnabled {
 		router.Handle("GET "+prefix+"/api/users/{userId}/apikeys", a.userOnly(a.entityUserOnly(a.handleUserAPIKeys())))
