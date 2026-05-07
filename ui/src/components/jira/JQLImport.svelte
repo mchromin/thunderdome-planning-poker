@@ -6,6 +6,7 @@
   import LL from '../../i18n/i18n-svelte';
   import { createEventDispatcher, onMount } from 'svelte';
   import FeatureSubscribeBanner from '../global/FeatureSubscribeBanner.svelte';
+  import { adfToHtml } from '../../lib/adfToHtml';
 
   import type { NotificationService } from '../../types/notifications';
   import type { ApiClient } from '../../types/apiclient';
@@ -147,18 +148,45 @@
     return str.endsWith('/') ? str.slice(0, -1) : str;
   }
 
+  // Jira Cloud (v3) returns `description` as an ADF document, while Jira
+  // Data Center (v2) returns it as a plain wiki-markup string. We request
+  // `expand=renderedFields` server-side so Jira returns a pre-rendered HTML
+  // version in `renderedFields.description` — prefer that when present.
+  // Fall back to ADF/string conversion via `adfToHtml`.
+  function getDescription(story) {
+    const rendered = story?.renderedFields?.description;
+    if (typeof rendered === 'string' && rendered.length > 0) {
+      return rendered;
+    }
+    return adfToHtml(story?.fields?.description);
+  }
+
+  function buildImportPayload(story, host) {
+    return {
+      name: story.fields.summary,
+      type: findPlanType(story.fields.issuetype.name),
+      referenceId: story.key,
+      link: `${host}/browse/${story.key}`,
+      description: getDescription(story),
+      priority: findPriority(story.fields.priority.name),
+    };
+  }
+
   function importStory(idx) {
     return function () {
       const story = jiraStories[idx];
-      handleImport({
-        name: story.fields.summary,
-        type: findPlanType(story.fields.issuetype.name),
-        referenceId: story.key,
-        link: `${stripTrailingSlash(jiraInstances[selectedJiraInstance].host)}/browse/${story.key}`,
-        description: '', // @TODO - get description
-        priority: findPriority(story.fields.priority.name),
-      });
+      const host = stripTrailingSlash(jiraInstances[selectedJiraInstance].host);
+      handleImport(buildImportPayload(story, host));
     };
+  }
+
+  function importAll() {
+    if (!jiraStories.length) return;
+    const host = stripTrailingSlash(jiraInstances[selectedJiraInstance].host);
+    for (const story of jiraStories) {
+      handleImport(buildImportPayload(story, host));
+    }
+    notifications.success(`Imported ${jiraStories.length} stories`);
   }
 
   onMount(() => {
@@ -235,6 +263,14 @@
         {#if jqlError !== ''}
           <div class="p-4 bg-red-50 border-red-500 text-red-800 font-semibold rounded">
             {jqlError}
+          </div>
+        {/if}
+        {#if jiraStories.length > 0}
+          <div class="w-full flex justify-between items-center mb-2">
+            <div class="text-sm text-gray-700 dark:text-gray-300">
+              {jiraStories.length} stor{jiraStories.length === 1 ? 'y' : 'ies'} found
+            </div>
+            <SolidButton onClick={importAll}>Import all</SolidButton>
           </div>
         {/if}
         {#each jiraStories as story, idx}

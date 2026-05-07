@@ -9,7 +9,7 @@
   import type { PokerGame, PokerStory, PokerStoryComment } from '../../types/poker';
   import type { ApiClient } from '../../types/apiclient';
   import type { NotificationService } from '../../types/notifications';
-  import { ExternalLink, Trash } from 'lucide-svelte';
+  import { ExternalLink, Trash, Check } from 'lucide-svelte';
 
   interface Props {
     game: PokerGame;
@@ -26,6 +26,12 @@
   let commentDraft: string = $state('');
   let finalizePoints: string = $state('');
   let lastSyncedStoryId: string = $state('');
+  // Visual feedback state for the Save comment button. `saving` shows a busy
+  // state while the request is in flight; `saved` shows a brief success
+  // animation after the response comes back.
+  let savingComment: boolean = $state(false);
+  let commentSaved: boolean = $state(false);
+  let commentSavedTimer: ReturnType<typeof setTimeout> | null = null;
   // Optimistic local override of the user's current vote. While set, it wins
   // over what the server says so clicks feel instant. Cleared once the
   // *latest* request's response has been reflected by the server.
@@ -98,14 +104,30 @@
   }
 
   function saveComment() {
-    if (!canEdit) return;
+    if (!canEdit || savingComment) return;
+    savingComment = true;
+    commentSaved = false;
+    if (commentSavedTimer) {
+      clearTimeout(commentSavedTimer);
+      commentSavedTimer = null;
+    }
     xfetch(`/api/battles/${game.id}/stories/${story.id}/comments`, {
       method: 'POST',
       body: { comment: commentDraft },
     })
       .then(res => res.json())
-      .then(() => onChange())
-      .catch(() => notifications.danger('Failed to save comment'));
+      .then(() => {
+        onChange();
+        commentSaved = true;
+        commentSavedTimer = setTimeout(() => {
+          commentSaved = false;
+          commentSavedTimer = null;
+        }, 1800);
+      })
+      .catch(() => notifications.danger('Failed to save comment'))
+      .finally(() => {
+        savingComment = false;
+      });
   }
 
   function deleteComment(commentId: string) {
@@ -216,45 +238,93 @@
       placeholder="Share your reasoning..."
     ></textarea>
     {#if canEdit}
-      <div class="mt-2 text-right">
-        <SolidButton onClick={saveComment}>Save comment</SolidButton>
+      <div class="mt-2 flex items-center justify-end gap-3">
+        {#if commentSaved}
+          <span
+            class="inline-flex items-center gap-1 text-sm font-semibold text-green-600 dark:text-lime-400 comment-saved-flash"
+            aria-live="polite"
+          >
+            <Check class="w-4 h-4" />
+            Saved
+          </span>
+        {/if}
+        <button
+          type="button"
+          onclick={saveComment}
+          disabled={savingComment}
+          class="inline-flex items-center justify-center min-w-[8rem] h-10 px-4 rounded font-semibold text-white
+                 transition-colors duration-200
+                 {commentSaved
+            ? 'bg-green-600 hover:bg-green-600 dark:bg-lime-600 dark:hover:bg-lime-600'
+            : 'bg-green-500 hover:bg-green-600 dark:bg-lime-500 dark:hover:bg-lime-600'}
+                 {savingComment ? 'opacity-70 cursor-wait' : ''}"
+        >
+          {#if savingComment}
+            <svg
+              class="w-4 h-4 me-2 animate-spin"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path
+                class="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+              ></path>
+            </svg>
+            Saving...
+          {:else if commentSaved}
+            <Check class="w-4 h-4 me-2" />
+            Saved
+          {:else}
+            Save comment
+          {/if}
+        </button>
       </div>
     {/if}
   </div>
 
+  <div class="mt-6 border-t pt-4 dark:border-gray-700">
+    <h4 class="font-semibold mb-2 dark:text-gray-200">Comments</h4>
+    <ul class="space-y-2">
+      {#each visibleComments as c (c.id)}
+        <li class="bg-gray-50 dark:bg-gray-900 rounded p-2 flex justify-between gap-2">
+          <div>
+            <div class="text-sm font-semibold dark:text-gray-200">
+              {game.hideVoterIdentity && !isFacilitator && c.userId !== $user.id
+                ? 'Anonymous'
+                : c.userName || 'User'}
+            </div>
+            <div class="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{c.comment}</div>
+          </div>
+          {#if isFacilitator || c.userId === $user.id}
+            <button
+              onclick={() => deleteComment(c.id)}
+              class="text-red-500 hover:text-red-700"
+              aria-label="Delete comment"
+            >
+              <Trash class="w-4 h-4" />
+            </button>
+          {/if}
+        </li>
+      {/each}
+      {#if visibleComments.length === 0}
+        <li class="text-sm text-gray-500 dark:text-gray-400 italic">No comments yet.</li>
+      {/if}
+    </ul>
+  </div>
+
   {#if isFacilitator || isFinalized}
     <div class="mt-6 border-t pt-4 dark:border-gray-700">
-      <h4 class="font-semibold mb-2 dark:text-gray-200">All votes &amp; comments</h4>
+      <h4 class="font-semibold mb-2 dark:text-gray-200">All votes</h4>
       <VotingMetrics
         pointValues={points}
         votes={visibleVotes}
         users={game.users}
         averageRounding={game.pointAverageRounding}
       />
-      <ul class="mt-3 space-y-2">
-        {#each visibleComments as c (c.id)}
-          <li class="bg-gray-50 dark:bg-gray-900 rounded p-2 flex justify-between gap-2">
-            <div>
-              <div class="text-sm font-semibold dark:text-gray-200">
-                {game.hideVoterIdentity && !isFacilitator ? 'Anonymous' : c.userName || 'User'}
-              </div>
-              <div class="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{c.comment}</div>
-            </div>
-            {#if isFacilitator || c.userId === $user.id}
-              <button
-                onclick={() => deleteComment(c.id)}
-                class="text-red-500 hover:text-red-700"
-                aria-label="Delete comment"
-              >
-                <Trash class="w-4 h-4" />
-              </button>
-            {/if}
-          </li>
-        {/each}
-        {#if visibleComments.length === 0}
-          <li class="text-sm text-gray-500 dark:text-gray-400 italic">No comments yet.</li>
-        {/if}
-      </ul>
 
       {#if isFacilitator}
         <div class="mt-4">
@@ -281,3 +351,24 @@
     </div>
   {/if}
 </div>
+
+<style>
+  @keyframes comment-saved-pop {
+    0% {
+      opacity: 0;
+      transform: translateY(4px) scale(0.9);
+    }
+    40% {
+      opacity: 1;
+      transform: translateY(0) scale(1.05);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  .comment-saved-flash {
+    animation: comment-saved-pop 0.45s ease-out both;
+  }
+</style>

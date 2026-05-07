@@ -442,9 +442,11 @@ func (d *Service) GetGameByID(pokerID string, userID string) (*thunderdome.Poker
 	// from any path (REST, WebSocket init, etc.):
 	//   - Facilitators always see everything; if hide_voter_identity is set,
 	//     vote warriorIds are masked.
-	//   - Non-facilitators only see their own vote and comment on
-	//     non-finalized stories. After a story is finalized (points set or
-	//     skipped) they see all votes/comments.
+	//   - Comments are visible to everyone in the game on every story.
+	//   - Non-facilitators only see their own vote on non-finalized stories.
+	//     After a story is finalized (points set or skipped) they see all
+	//     votes. If hide_voter_identity is set, vote/comment identities of
+	//     other users are masked from non-facilitators.
 	if b.SessionMode == thunderdome.PokerSessionModeAsync && len(b.Stories) > 0 {
 		comments, cErr := d.GetGameComments(pokerID)
 		if cErr == nil {
@@ -471,16 +473,11 @@ func (d *Service) GetGameByID(pokerID string, userID string) (*thunderdome.Poker
 					}
 				}
 				st.Votes = filteredVotes
+			}
 
-				filteredComments := make([]*thunderdome.PokerStoryComment, 0, len(st.Comments))
-				for _, c := range st.Comments {
-					if c.UserID == userID {
-						filteredComments = append(filteredComments, c)
-					}
-				}
-				st.Comments = filteredComments
-			} else if b.HideVoterIdentity && !isFacilitator {
-				// finalized story but the game wants identities hidden from participants
+			if b.HideVoterIdentity && !isFacilitator {
+				// Mask identities of other users' votes/comments from
+				// non-facilitators when hide_voter_identity is enabled.
 				for _, v := range st.Votes {
 					if v.UserID != userID {
 						v.UserID = ""
